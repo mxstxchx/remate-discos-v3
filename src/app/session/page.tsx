@@ -1,18 +1,14 @@
 import { redirect } from 'next/navigation'
-import { getDeviceId } from '@/lib/utils/fingerprint'
+import { SessionForm } from './components/SessionForm'
+import { headers } from 'next/headers'
 
 export default async function SessionPage() {
-  const deviceId = await getDeviceId()
+  // Using headers for initial server-side handling
+  const userAgent = headers().get('user-agent') || ''
   
-  // Check for existing session
-  const session = await getSessionByDevice(deviceId)
-  if (session && !isExpired(session)) {
-    redirect('/browse')
-  }
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <SessionForm deviceId={deviceId} />
+      <SessionForm />
     </main>
   )
 }

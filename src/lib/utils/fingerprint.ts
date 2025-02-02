@@ -1,8 +1,11 @@
+'use client'
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 
 let fpPromise: Promise<any> | null = null
 
 export const getDeviceId = async () => {
+  if (typeof window === 'undefined') return null
+  
   if (!fpPromise) {
     fpPromise = FingerprintJS.load()
   }
