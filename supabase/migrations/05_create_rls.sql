@@ -32,27 +32,28 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Device policies
 CREATE POLICY "Devices viewable by owner" ON devices
-  FOR SELECT USING (
+  FOR ALL USING (
     id = (get_session_claims()->>'device_id')::uuid
     OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Session policies
 CREATE POLICY "Sessions viewable by owner" ON user_sessions
-  FOR SELECT USING (
-    device_id = (get_session_claims()->>'device_id')::uuid
+  FOR ALL USING (
+    id = (get_session_claims()->>'session_id')::uuid
+    OR device_id = (get_session_claims()->>'device_id')::uuid
     OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Reservation policies
 CREATE POLICY "Reservations viewable by owner" ON reservations
-  FOR SELECT USING (
+  FOR ALL USING (
     session_id = (get_session_claims()->>'session_id')::uuid
     OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Audit log policies
 CREATE POLICY "Audit logs admin only" ON audit_logs
-  FOR SELECT USING (
+  FOR ALL USING (
     (get_session_claims()->>'is_admin')::boolean
   );
