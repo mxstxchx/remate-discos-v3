@@ -6,7 +6,36 @@ DECLARE
   admin_session_id UUID;
   claims jsonb;
   debug_count integer;
+  rls_info record;
+  policy_info record;
 BEGIN
+  -- Check RLS State
+  RAISE NOTICE 'Checking RLS configuration...';
+  FOR rls_info IN 
+    SELECT tablename, rowsecurity 
+    FROM pg_tables 
+    WHERE schemaname = 'public'
+  LOOP
+    RAISE NOTICE 'Table: %, RLS Enabled: %', rls_info.tablename, rls_info.rowsecurity;
+  END LOOP;
+
+  -- Check Policies
+  RAISE NOTICE 'Checking active policies...';
+  FOR policy_info IN
+    SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual
+    FROM pg_policies 
+    WHERE schemaname = 'public'
+  LOOP
+    RAISE NOTICE 'Policy: % on % (%) - %', 
+      policy_info.policyname, 
+      policy_info.tablename,
+      policy_info.cmd,
+      policy_info.qual;
+  END LOOP;
+
+  -- Check current replication role
+  RAISE NOTICE 'Current replication role: %', current_setting('session_replication_role');
+
   RAISE NOTICE 'Test setup start';
   SET session_replication_role = 'replica';
   
@@ -32,6 +61,7 @@ BEGIN
 
   SET session_replication_role = 'origin';
   RAISE NOTICE 'Test setup complete';
+  RAISE NOTICE 'Replication role after setup: %', current_setting('session_replication_role');
 
   -- Test basic session visibility
   PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
