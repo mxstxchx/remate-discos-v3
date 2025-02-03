@@ -8,7 +8,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER session_last_active
-  BEFORE UPDATE ON sessions
+  BEFORE UPDATE ON user_sessions
   FOR EACH ROW
   EXECUTE FUNCTION update_session_last_active();
 
