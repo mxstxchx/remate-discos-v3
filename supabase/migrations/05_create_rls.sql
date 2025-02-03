@@ -15,6 +15,7 @@ BEGIN
   
   SELECT jsonb_build_object(
     'session_id', s.id,
+    'device_id', d.id,
     'alias', s.alias,
     'is_admin', s.is_admin
   ) INTO claims
@@ -30,59 +31,28 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Device policies
-CREATE POLICY "Devices viewable by fingerprint" ON devices
+CREATE POLICY "Devices viewable by owner" ON devices
   FOR SELECT USING (
-    fingerprint = current_setting('app.device_fingerprint', TRUE)
-  );
-
-CREATE POLICY "Devices updatable by fingerprint" ON devices
-  FOR UPDATE USING (
-    fingerprint = current_setting('app.device_fingerprint', TRUE)
+    id = (get_session_claims()->>'device_id')::uuid
+    OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Session policies
-CREATE POLICY "Sessions viewable by device" ON user_sessions
+CREATE POLICY "Sessions viewable by owner" ON user_sessions
   FOR SELECT USING (
-    device_id IN (
-      SELECT id FROM devices
-      WHERE fingerprint = current_setting('app.device_fingerprint', TRUE)
-    )
-  );
-
-CREATE POLICY "Sessions deletable by device" ON user_sessions
-  FOR DELETE USING (
-    device_id IN (
-      SELECT id FROM devices
-      WHERE fingerprint = current_setting('app.device_fingerprint', TRUE)
-    )
+    device_id = (get_session_claims()->>'device_id')::uuid
+    OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Reservation policies
-CREATE POLICY "Reservations viewable by session" ON reservations
+CREATE POLICY "Reservations viewable by owner" ON reservations
   FOR SELECT USING (
-    session_id::text = (get_session_claims()->>'session_id')::text
-    OR (get_session_claims()->>'is_admin')::boolean = true
-  );
-
-CREATE POLICY "Reservations updatable by session" ON reservations
-  FOR UPDATE USING (
-    session_id::text = (get_session_claims()->>'session_id')::text
-    OR (get_session_claims()->>'is_admin')::boolean = true
-  );
-
-CREATE POLICY "Reservations deletable by session" ON reservations
-  FOR DELETE USING (
-    session_id::text = (get_session_claims()->>'session_id')::text
-    OR (get_session_claims()->>'is_admin')::boolean = true
+    session_id = (get_session_claims()->>'session_id')::uuid
+    OR (get_session_claims()->>'is_admin')::boolean
   );
 
 -- Audit log policies
-CREATE POLICY "Audit logs viewable by admin" ON audit_logs
+CREATE POLICY "Audit logs admin only" ON audit_logs
   FOR SELECT USING (
-    (get_session_claims()->>'is_admin')::boolean = true
-  );
-
-CREATE POLICY "Audit logs viewable by session" ON audit_logs
-  FOR SELECT USING (
-    session_id::text = (get_session_claims()->>'session_id')::text
+    (get_session_claims()->>'is_admin')::boolean
   );
