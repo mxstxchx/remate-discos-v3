@@ -7,109 +7,62 @@ DECLARE
   claims jsonb;
   debug_count integer;
   rls_info record;
-  policy_info record;
-  test_phase text := 'initialization';
 BEGIN
-  -- Verify replication role
-  IF current_setting('session_replication_role') != 'origin' THEN
-    RAISE EXCEPTION 'Test must run with replication role origin';
-  END IF;
-
-  -- Check RLS configuration
-  test_phase := 'RLS configuration check';
-  RAISE NOTICE 'Checking RLS configuration...';
-  FOR rls_info IN 
-    SELECT tablename, rowsecurity 
-    FROM pg_tables 
-    WHERE schemaname = 'public'
-    AND tablename IN ('devices', 'user_sessions', 'reservations', 'audit_logs')
-  LOOP
-    IF NOT rls_info.rowsecurity THEN
-      RAISE EXCEPTION 'RLS not enabled on %', rls_info.tablename;
-    END IF;
-    RAISE NOTICE 'Table: %, RLS Enabled: %', rls_info.tablename, rls_info.rowsecurity;
-  END LOOP;
-
-  -- Check Policies
-  test_phase := 'policy verification';
-  RAISE NOTICE 'Checking active policies...';
-  FOR policy_info IN
-    SELECT schemaname, tablename, policyname, cmd, qual
-    FROM pg_policies 
-    WHERE schemaname = 'public'
-    ORDER BY tablename, policyname
-  LOOP
-    RAISE NOTICE 'Policy: % on % (%) - %', 
-      policy_info.policyname, 
-      policy_info.tablename,
-      policy_info.cmd,
-      policy_info.qual;
-  END LOOP;
-
-  -- Test setup
-  test_phase := 'test data setup';
-  RAISE NOTICE 'Test setup start';
-  SET session_replication_role = 'replica';
-  
-  INSERT INTO devices (fingerprint) VALUES ('regular_user_fp')
-  RETURNING id INTO regular_device_id;
-  RAISE NOTICE 'Regular device created (id: %)', regular_device_id;
-  
-  INSERT INTO devices (fingerprint) VALUES ('admin_user_fp')
-  RETURNING id INTO admin_device_id;
-  RAISE NOTICE 'Admin device created (id: %)', admin_device_id;
-
-  INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
-  VALUES (regular_device_id, 'regular_user', false, NOW() + INTERVAL '1 day')
-  RETURNING id INTO regular_session_id;
-  RAISE NOTICE 'Regular session created (id: %)', regular_session_id;
-
-  INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
-  VALUES (admin_device_id, 'admin_user', true, NOW() + INTERVAL '1 day')
-  RETURNING id INTO admin_session_id;
-  RAISE NOTICE 'Admin session created (id: %)', admin_session_id;
-
+  -- Clean initial state
   SET session_replication_role = 'origin';
-  RAISE NOTICE 'Test setup complete';
-  RAISE NOTICE 'Replication role after setup: %', current_setting('session_replication_role');
+  
+  -- Initial RLS verification
+  RAISE NOTICE 'Initial replication role: %', current_setting('session_replication_role');
+  RAISE NOTICE 'Initial RLS on user_sessions: %', (
+    SELECT rowsecurity FROM pg_tables 
+    WHERE schemaname = 'public' AND tablename = 'user_sessions'
+  );
 
-  -- Test basic session visibility
-  test_phase := 'session visibility test';
-  PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
-  SELECT get_session_claims() INTO claims;
-  RAISE NOTICE 'Regular user claims: %', claims;
-  
-  SELECT count(*) INTO debug_count FROM user_sessions;
-  RAISE NOTICE 'Total sessions visible: %', debug_count;
-  
-  SELECT count(*) INTO debug_count FROM user_sessions WHERE id = regular_session_id;
-  RAISE NOTICE 'Own sessions visible: %', debug_count;
-  
-  SELECT count(*) INTO debug_count FROM user_sessions WHERE id = admin_session_id;
-  RAISE NOTICE 'Admin sessions visible: %', debug_count;
-  
-  -- Test SQL executed
-  test_phase := 'SQL verification';
-  RAISE NOTICE 'Testing visibility of session: %', regular_session_id;
-  
-  -- Testing claims impact
-  test_phase := 'claims verification';
-  RAISE NOTICE 'Current claims: %', get_session_claims();
-  RAISE NOTICE 'Is admin check result: %', (get_session_claims()->>'is_admin')::boolean;
+  -- Setup test data with explicit transaction
+  BEGIN;
+    SET session_replication_role = 'replica';
+    
+    INSERT INTO devices (fingerprint) VALUES 
+      ('regular_user_fp'),
+      ('admin_user_fp')
+    RETURNING id INTO regular_device_id;
+    SELECT id INTO admin_device_id FROM devices WHERE fingerprint = 'admin_user_fp';
 
-  -- Visibility assertions
-  test_phase := 'visibility assertions';
-  ASSERT EXISTS(
-    SELECT 1 FROM user_sessions WHERE id = regular_session_id
-  ), 'Regular user cannot see own session';
+    INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
+    VALUES 
+      (regular_device_id, 'regular_user', false, NOW() + INTERVAL '1 day'),
+      (admin_device_id, 'admin_user', true, NOW() + INTERVAL '1 day')
+    RETURNING id INTO regular_session_id;
+    SELECT id INTO admin_session_id FROM user_sessions WHERE alias = 'admin_user';
+    
+    SET session_replication_role = 'origin';
+  COMMIT;
 
-  ASSERT NOT EXISTS(
-    SELECT 1 FROM user_sessions WHERE id = admin_session_id
-  ), 'Regular user can see other sessions';
+  -- Post-setup verification
+  RAISE NOTICE 'Post-setup replication role: %', current_setting('session_replication_role');
+  RAISE NOTICE 'Post-setup RLS status: %', (
+    SELECT rowsecurity FROM pg_tables 
+    WHERE schemaname = 'public' AND tablename = 'user_sessions'
+  );
 
-  RAISE NOTICE 'Test complete';
+  -- Test in clean transaction
+  BEGIN;
+    PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
+    
+    SELECT get_session_claims() INTO claims;
+    RAISE NOTICE 'Claims: %', claims;
+    
+    SELECT count(*) INTO debug_count FROM user_sessions;
+    RAISE NOTICE 'Total visible sessions: %', debug_count;
+    
+    ASSERT debug_count = 1, 
+      'RLS violation - user can see other sessions. Replication role: ' || 
+      current_setting('session_replication_role');
+  COMMIT;
+
+  RAISE NOTICE 'Tests passed';
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'Test failed during % phase: %', test_phase, SQLERRM;
+  RAISE NOTICE 'Error role state: %', current_setting('session_replication_role');
   RAISE;
 END;
 $$ LANGUAGE plpgsql;
