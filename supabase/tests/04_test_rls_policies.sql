@@ -8,6 +8,7 @@ DECLARE
   debug_count integer;
   rls_info record;
   policy_info record;
+  test_phase text := 'initialization';
 BEGIN
   -- Verify replication role
   IF current_setting('session_replication_role') != 'origin' THEN
@@ -15,6 +16,7 @@ BEGIN
   END IF;
 
   -- Check RLS configuration
+  test_phase := 'RLS configuration check';
   RAISE NOTICE 'Checking RLS configuration...';
   FOR rls_info IN 
     SELECT tablename, rowsecurity 
@@ -29,6 +31,7 @@ BEGIN
   END LOOP;
 
   -- Check Policies
+  test_phase := 'policy verification';
   RAISE NOTICE 'Checking active policies...';
   FOR policy_info IN
     SELECT schemaname, tablename, policyname, cmd, qual
@@ -44,6 +47,7 @@ BEGIN
   END LOOP;
 
   -- Test setup
+  test_phase := 'test data setup';
   RAISE NOTICE 'Test setup start';
   SET session_replication_role = 'replica';
   
@@ -70,6 +74,7 @@ BEGIN
   RAISE NOTICE 'Replication role after setup: %', current_setting('session_replication_role');
 
   -- Test basic session visibility
+  test_phase := 'session visibility test';
   PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
   SELECT get_session_claims() INTO claims;
   RAISE NOTICE 'Regular user claims: %', claims;
@@ -84,13 +89,16 @@ BEGIN
   RAISE NOTICE 'Admin sessions visible: %', debug_count;
   
   -- Test SQL executed
+  test_phase := 'SQL verification';
   RAISE NOTICE 'Testing visibility of session: %', regular_session_id;
   
   -- Testing claims impact
+  test_phase := 'claims verification';
   RAISE NOTICE 'Current claims: %', get_session_claims();
   RAISE NOTICE 'Is admin check result: %', (get_session_claims()->>'is_admin')::boolean;
 
   -- Visibility assertions
+  test_phase := 'visibility assertions';
   ASSERT EXISTS(
     SELECT 1 FROM user_sessions WHERE id = regular_session_id
   ), 'Regular user cannot see own session';
@@ -101,7 +109,7 @@ BEGIN
 
   RAISE NOTICE 'Test complete';
 EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'Test failed at % with %', SQLERRM;
+  RAISE NOTICE 'Test failed during % phase: %', test_phase, SQLERRM;
   RAISE;
 END;
 $$ LANGUAGE plpgsql;
