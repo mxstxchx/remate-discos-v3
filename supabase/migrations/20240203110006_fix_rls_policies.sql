@@ -1,6 +1,8 @@
--- Update policies to use claims exclusively
+-- Drop all existing policies
 DROP POLICY IF EXISTS session_select_policy ON user_sessions;
 DROP POLICY IF EXISTS device_select_policy ON devices;
+DROP POLICY IF EXISTS reservation_select_policy ON reservations;
+DROP POLICY IF EXISTS audit_log_select_policy ON audit_logs;
 
 -- Update claims handling
 CREATE OR REPLACE FUNCTION get_session_claims()
@@ -69,14 +71,13 @@ CREATE POLICY device_select_policy ON devices
     OR (get_session_claims()->>'is_admin')::boolean = true
   );
 
--- Update other policies to use claims for admin check
-CREATE OR REPLACE POLICY reservation_select_policy ON reservations
+CREATE POLICY reservation_select_policy ON reservations
   FOR SELECT USING (
     session_id = (get_session_claims()->>'session_id')::uuid
     OR (get_session_claims()->>'is_admin')::boolean = true
   );
 
-CREATE OR REPLACE POLICY audit_log_select_policy ON audit_logs
+CREATE POLICY audit_log_select_policy ON audit_logs
   FOR SELECT USING (
     session_id = (get_session_claims()->>'session_id')::uuid
     OR (get_session_claims()->>'is_admin')::boolean = true
