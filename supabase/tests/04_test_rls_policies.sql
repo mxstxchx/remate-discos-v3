@@ -13,19 +13,20 @@ BEGIN
   INSERT INTO devices (fingerprint) VALUES ('admin_user_fp')
   RETURNING id INTO admin_device_id;
 
-  -- Setup test sessions
-  INSERT INTO user_sessions (device_id, alias, is_admin)
-  VALUES (regular_device_id, 'regular_user', false)
+  -- Setup test sessions with expiration
+  INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
+  VALUES (regular_device_id, 'regular_user', false, NOW() + INTERVAL '1 day')
   RETURNING id INTO regular_session_id;
 
-  INSERT INTO user_sessions (device_id, alias, is_admin)
-  VALUES (admin_device_id, 'admin_user', true)
+  INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
+  VALUES (admin_device_id, 'admin_user', true, NOW() + INTERVAL '1 day')
   RETURNING id INTO admin_session_id;
 
   -- Debug claim generation
-  PERFORM set_config('app.device_fingerprint', 'regular_user_fp', true);
+  PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
   SELECT get_session_claims() INTO claims;
   RAISE NOTICE 'Regular claims: %', claims;
+  RAISE NOTICE 'Regular session id: %', regular_session_id;
 
   -- Test 1: Regular User Access
   ASSERT EXISTS(
@@ -37,9 +38,10 @@ BEGIN
   ), 'Regular user can see other sessions';
 
   -- Debug admin claims
-  PERFORM set_config('app.device_fingerprint', 'admin_user_fp', true);
+  PERFORM set_config('request.device_fingerprint', 'admin_user_fp', true);
   SELECT get_session_claims() INTO claims;
   RAISE NOTICE 'Admin claims: %', claims;
+  RAISE NOTICE 'Admin session id: %', admin_session_id;
 
   ASSERT EXISTS(
     SELECT 1 FROM audit_logs
