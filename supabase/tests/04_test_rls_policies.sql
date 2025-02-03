@@ -84,11 +84,8 @@ BEGIN
   RAISE NOTICE 'Admin sessions visible: %', debug_count;
   
   -- Test SQL being executed
-  RAISE NOTICE 'Testing query: %', format(
-    'SELECT * FROM user_sessions WHERE id = %L'
-    'OR (get_session_claims()->>''is_admin'')::boolean = true',
-    regular_session_id
-  );
+  RAISE NOTICE 'Testing visibility of session %', regular_session_id;
+  RAISE NOTICE 'SQL: SELECT * FROM user_sessions WHERE id = ''%'' OR (get_session_claims()->>''is_admin'')::boolean = true', regular_session_id;
 
   -- Visibility assertions
   ASSERT EXISTS(
