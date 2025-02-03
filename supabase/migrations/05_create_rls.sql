@@ -1,6 +1,6 @@
 -- Enable RLS
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
@@ -18,7 +18,7 @@ BEGIN
     'alias', s.alias,
     'is_admin', s.is_admin
   ) INTO claims
-  FROM sessions s
+  FROM user_sessions s
   JOIN devices d ON s.device_id = d.id
   WHERE d.fingerprint = device_fp
   AND s.expires_at > now()
@@ -41,7 +41,7 @@ CREATE POLICY "Devices updatable by fingerprint" ON devices
   );
 
 -- Session policies
-CREATE POLICY "Sessions viewable by device" ON sessions
+CREATE POLICY "Sessions viewable by device" ON user_sessions
   FOR SELECT USING (
     device_id IN (
       SELECT id FROM devices
@@ -49,7 +49,7 @@ CREATE POLICY "Sessions viewable by device" ON sessions
     )
   );
 
-CREATE POLICY "Sessions deletable by device" ON sessions
+CREATE POLICY "Sessions deletable by device" ON user_sessions
   FOR DELETE USING (
     device_id IN (
       SELECT id FROM devices

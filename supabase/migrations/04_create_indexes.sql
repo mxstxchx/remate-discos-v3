@@ -1,10 +1,10 @@
 -- Session lookup optimizations
-CREATE INDEX idx_sessions_device_lookup 
-  ON sessions (device_id, expires_at DESC);
+CREATE INDEX idx_user_sessions_device_lookup 
+  ON user_sessions (device_id, expires_at DESC);
 
 -- Changed: Removed function call from WHERE clause
-CREATE INDEX idx_sessions_active 
-  ON sessions (last_active DESC, expires_at);
+CREATE INDEX idx_user_sessions_active 
+  ON user_sessions (last_active DESC, expires_at);
 
 -- Reservation management
 CREATE INDEX idx_reservations_status 
