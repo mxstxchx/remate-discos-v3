@@ -2,9 +2,9 @@
 CREATE INDEX idx_sessions_device_lookup 
   ON sessions (device_id, expires_at DESC);
 
+-- Changed: Removed function call from WHERE clause
 CREATE INDEX idx_sessions_active 
-  ON sessions (last_active DESC)
-  WHERE expires_at > NOW();
+  ON sessions (last_active DESC, expires_at);
 
 -- Reservation management
 CREATE INDEX idx_reservations_status 
@@ -14,9 +14,10 @@ CREATE INDEX idx_reservations_queue
   ON reservations (release_id, position_in_queue)
   WHERE status = 'in_queue';
 
+-- Changed: Removed function call from WHERE clause
 CREATE INDEX idx_reservations_expiry 
-  ON reservations (expires_at)
-  WHERE status IN ('reserved', 'in_cart');
+  ON reservations (expires_at, status)
+  WHERE status = ANY(ARRAY['reserved', 'in_cart']);
 
 -- JSONB operations
 CREATE INDEX idx_release_labels 
