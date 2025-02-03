@@ -83,9 +83,12 @@ BEGIN
   SELECT count(*) INTO debug_count FROM user_sessions WHERE id = admin_session_id;
   RAISE NOTICE 'Admin sessions visible: %', debug_count;
   
-  -- Test SQL being executed
-  RAISE NOTICE 'Testing visibility of session %', regular_session_id;
-  RAISE NOTICE 'SQL: SELECT * FROM user_sessions WHERE id = ''%'' OR (get_session_claims()->>''is_admin'')::boolean = true', regular_session_id;
+  -- Test SQL executed
+  RAISE NOTICE 'Testing visibility of session: %', regular_session_id;
+  
+  -- Testing claims impact
+  RAISE NOTICE 'Current claims: %', get_session_claims();
+  RAISE NOTICE 'Is admin check result: %', (get_session_claims()->>'is_admin')::boolean;
 
   -- Visibility assertions
   ASSERT EXISTS(
