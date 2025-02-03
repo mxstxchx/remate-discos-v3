@@ -12,12 +12,12 @@ CREATE INDEX idx_reservations_status
 
 CREATE INDEX idx_reservations_queue 
   ON reservations (release_id, position_in_queue)
-  WHERE status = 'in_queue';
+  WHERE status = 'in_queue'::reservation_status;
 
--- Changed: Removed function call from WHERE clause
+-- Changed: Added proper type casting for ENUM comparison
 CREATE INDEX idx_reservations_expiry 
   ON reservations (expires_at, status)
-  WHERE status = ANY(ARRAY['reserved', 'in_cart']);
+  WHERE status = ANY(ARRAY['reserved'::reservation_status, 'in_cart'::reservation_status]);
 
 -- JSONB operations
 CREATE INDEX idx_release_labels 
