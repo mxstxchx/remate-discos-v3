@@ -19,7 +19,7 @@ CREATE TABLE devices (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE sessions (
+CREATE TABLE user_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   device_id UUID REFERENCES devices(id) ON DELETE CASCADE,
   alias TEXT NOT NULL,
@@ -32,7 +32,6 @@ CREATE TABLE sessions (
 );
 
 -- Note: releases table already exists in production
--- This is just for reference
 /* 
 CREATE TABLE IF NOT EXISTS releases (
   id BIGINT PRIMARY KEY,
@@ -55,7 +54,7 @@ CREATE TABLE IF NOT EXISTS releases (
 CREATE TABLE reservations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   release_id BIGINT,
-  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES user_sessions(id) ON DELETE CASCADE,
   status reservation_status NOT NULL DEFAULT 'available',
   position_in_queue INTEGER,
   reserved_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -66,7 +65,7 @@ CREATE TABLE reservations (
 
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
+  session_id UUID REFERENCES user_sessions(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
   details JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
