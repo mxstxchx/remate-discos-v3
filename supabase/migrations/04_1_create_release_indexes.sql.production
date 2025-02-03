@@ -1,0 +1,7 @@
+-- JSONB operations for releases table
+-- NOTE: Only run this in production where releases table exists
+CREATE INDEX IF NOT EXISTS idx_release_labels 
+  ON releases USING GIN (labels);
+
+CREATE INDEX IF NOT EXISTS idx_release_styles 
+  ON releases USING GIN (to_tsvector('english', styles::text));
