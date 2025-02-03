@@ -10,8 +10,8 @@ INSERT INTO user_sessions (id, device_id, alias, language, is_admin, expires_at)
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'admin_user', 'en-UK', true, NOW() + INTERVAL '7 days'),
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 'expired_user', 'es-ES', false, NOW() - INTERVAL '1 day');
 
--- Test releases (assuming releases table exists)
-INSERT INTO releases (id, title, artists, labels, styles, condition, price, images) VALUES
+-- Test releases
+INSERT INTO test_releases (id, title, artists, labels, styles, condition, price, images) VALUES
   (1, 'Test Release 1', ARRAY['Artist 1'], '{"name": "Label 1", "catno": "CAT1"}'::jsonb, ARRAY['Style 1'], 'NM', 25.00, '{"primary": "img1.jpg"}'::jsonb),
   (2, 'Test Release 2', ARRAY['Artist 2'], '{"name": "Label 2", "catno": "CAT2"}'::jsonb, ARRAY['Style 2'], 'VG+', 15.00, '{"primary": "img2.jpg"}'::jsonb);
 
