@@ -1,15 +1,16 @@
 DO $$
 DECLARE
+  test_device_id UUID;
   test_session_id UUID;
-  test_release_id BIGINT;
   reservation_id UUID;
 BEGIN
   -- Setup test data
   INSERT INTO devices (fingerprint) VALUES ('test_fp_reserv')
-  RETURNING id INTO STRICT test_session_id;
+  RETURNING id INTO test_device_id;
   
   INSERT INTO user_sessions (device_id, alias)
-  VALUES (test_session_id, 'test_reserv_user');
+  VALUES (test_device_id, 'test_reserv_user')
+  RETURNING id INTO test_session_id;
   
   -- Test 1: Create Reservation
   INSERT INTO reservations (release_id, session_id, status)
