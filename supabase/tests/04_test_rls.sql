@@ -4,7 +4,6 @@ DECLARE
   admin_device_id UUID;
   regular_session_id UUID;
   admin_session_id UUID;
-  r RECORD;
 BEGIN
   -- Setup
   TRUNCATE devices, user_sessions, reservations, audit_logs CASCADE;
@@ -28,22 +27,14 @@ BEGIN
   RETURNING id INTO admin_session_id;
 
   -- Regular user tests
-  PERFORM set_config('request.device_fingerprint', 'regular_fp', TRUE);
-  
-  RAISE NOTICE 'Current device_fp: %, session_id: %', 
-    current_setting('request.device_fingerprint', TRUE),
-    get_session_id();
-
-  FOR r IN SELECT * FROM debug_session_policy(regular_session_id) LOOP
-    RAISE NOTICE '% = %', r.check_name, r.result;
-  END LOOP;
-
-  RAISE NOTICE 'Visible sessions: %', (
-    SELECT string_agg(alias, ', ') FROM user_sessions
-  );
-
+  PERFORM set_config('app.device_fingerprint', 'regular_fp', true);
   ASSERT (SELECT COUNT(*) FROM user_sessions) = 1,
     'Regular user should only see their session';
+
+  -- Admin user tests
+  PERFORM set_config('app.device_fingerprint', 'admin_fp', true);
+  ASSERT (SELECT COUNT(*) FROM user_sessions) = 2,
+    'Admin should see all sessions';
 
 END;
 $$ LANGUAGE plpgsql;
