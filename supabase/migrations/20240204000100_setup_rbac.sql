@@ -25,37 +25,24 @@ DECLARE
     user_is_admin boolean;
     current_fp text;
 BEGIN
-    -- Debug vars
     current_fp := current_setting('app.device_fingerprint', true);
-    RAISE NOTICE 'Function called with: session_id=%, uid=%, fp=%', 
-                 session_id, auth.uid(), current_fp;
 
-    -- Check if session exists and get its data
     SELECT * INTO session_record
     FROM public.sessions
     WHERE id = session_id;
 
     IF session_record IS NULL THEN
-        RAISE NOTICE 'Session not found';
         RETURN false;
     END IF;
 
-    -- Check if admin
-    SELECT (role = 'admin') FROM auth.users 
-    WHERE id = auth.uid()
-    INTO user_is_admin;
+    SELECT (role = 'admin') INTO user_is_admin 
+    FROM auth.users 
+    WHERE id = auth.uid();
 
     IF user_is_admin THEN
-        RAISE NOTICE 'Admin access granted';
         RETURN true;
     END IF;
 
-    -- Debug session match
-    RAISE NOTICE 'Checking match: session_uid=%, current_uid=%, session_fp=%, current_fp=%',
-                 session_record.user_id, auth.uid(),
-                 session_record.device_fingerprint, current_fp;
-
-    -- Direct comparison
     RETURN 
         session_record.user_id = auth.uid() AND
         session_record.device_fingerprint = current_fp;
@@ -70,9 +57,3 @@ CREATE POLICY sessions_access ON public.sessions
   FOR ALL
   TO authenticated
   USING (auth.get_session_access(id));
-
--- Debug policy
-CREATE POLICY sessions_debug_access ON public.sessions
-  FOR SELECT
-  TO authenticated
-  USING (true);
