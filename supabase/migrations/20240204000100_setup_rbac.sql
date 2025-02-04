@@ -23,13 +23,20 @@ DECLARE
     session_exists boolean;
     session_record record;
     user_is_admin boolean;
+    current_fp text;
 BEGIN
-    -- Check if session exists and get its data
-    SELECT EXISTS (
-        SELECT 1 FROM public.sessions WHERE id = session_id
-    ) INTO session_exists;
+    -- Debug vars
+    current_fp := current_setting('app.device_fingerprint', true);
+    RAISE NOTICE 'Function called with: session_id=%, uid=%, fp=%', 
+                 session_id, auth.uid(), current_fp;
 
-    IF NOT session_exists THEN
+    -- Check if session exists and get its data
+    SELECT * INTO session_record
+    FROM public.sessions
+    WHERE id = session_id;
+
+    IF session_record IS NULL THEN
+        RAISE NOTICE 'Session not found';
         RETURN false;
     END IF;
 
@@ -39,17 +46,19 @@ BEGIN
     INTO user_is_admin;
 
     IF user_is_admin THEN
+        RAISE NOTICE 'Admin access granted';
         RETURN true;
     END IF;
 
-    -- Direct user+fingerprint comparison
-    SELECT * INTO session_record
-    FROM public.sessions
-    WHERE id = session_id;
-    
+    -- Debug session match
+    RAISE NOTICE 'Checking match: session_uid=%, current_uid=%, session_fp=%, current_fp=%',
+                 session_record.user_id, auth.uid(),
+                 session_record.device_fingerprint, current_fp;
+
+    -- Direct comparison
     RETURN 
         session_record.user_id = auth.uid() AND
-        session_record.device_fingerprint = current_setting('app.device_fingerprint', true);
+        session_record.device_fingerprint = current_fp;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
