@@ -21,11 +21,10 @@ CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
 RETURNS boolean AS $$
 DECLARE
     session_exists boolean;
-    session_fingerprint text;
-    current_fingerprint text;
+    session_record record;
     user_is_admin boolean;
 BEGIN
-    -- Check if session exists
+    -- Check if session exists and get its data
     SELECT EXISTS (
         SELECT 1 FROM public.sessions WHERE id = session_id
     ) INTO session_exists;
@@ -43,20 +42,14 @@ BEGIN
         RETURN true;
     END IF;
 
-    -- Get fingerprints
-    SELECT device_fingerprint INTO session_fingerprint
-    FROM public.sessions WHERE id = session_id;
+    -- Direct user+fingerprint comparison
+    SELECT * INTO session_record
+    FROM public.sessions
+    WHERE id = session_id;
     
-    current_fingerprint := current_setting('app.device_fingerprint', true);
-
-    -- Check user+fingerprint match
-    RETURN EXISTS (
-        SELECT 1
-        FROM public.sessions s
-        WHERE s.id = session_id
-        AND s.user_id = auth.uid()
-        AND session_fingerprint = current_fingerprint
-    );
+    RETURN 
+        session_record.user_id = auth.uid() AND
+        session_record.device_fingerprint = current_setting('app.device_fingerprint', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
