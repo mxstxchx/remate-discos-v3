@@ -34,7 +34,7 @@ CREATE POLICY reservation_access ON reservations
   FOR ALL
   USING (
     session_id IN (
-      SELECT id FROM user_sessions s
+      SELECT s.id FROM user_sessions s
       JOIN devices d ON s.device_id = d.id
       WHERE d.fingerprint = current_setting('app.device_fingerprint', true)
     )
