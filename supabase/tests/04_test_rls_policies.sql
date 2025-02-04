@@ -18,12 +18,11 @@ BEGIN
 
   SET session_replication_role = 'replica';
   
-  INSERT INTO devices (fingerprint) 
-  VALUES ('regular_user_fp')
+  -- Fix: Separate inserts for clearer ID handling
+  INSERT INTO devices (fingerprint) VALUES ('regular_user_fp')
   RETURNING id INTO regular_device_id;
   
-  INSERT INTO devices (fingerprint) 
-  VALUES ('admin_user_fp')
+  INSERT INTO devices (fingerprint) VALUES ('admin_user_fp')
   RETURNING id INTO admin_device_id;
 
   INSERT INTO user_sessions (device_id, alias, is_admin, expires_at)
@@ -35,12 +34,17 @@ BEGIN
   RETURNING id INTO admin_session_id;
   
   SET session_replication_role = 'origin';
+
   RAISE NOTICE 'Post-setup replication role: %', current_setting('session_replication_role');
+  RAISE NOTICE 'Post-setup RLS status: %', (
+    SELECT rowsecurity FROM pg_tables 
+    WHERE schemaname = 'public' AND tablename = 'user_sessions'
+  );
 
   PERFORM set_config('request.device_fingerprint', 'regular_user_fp', true);
   
   SELECT get_session_claims() INTO claims;
-  RAISE NOTICE 'Claims for device %, session %: %', regular_device_id, regular_session_id, claims;
+  RAISE NOTICE 'Claims: %', claims;
   
   SELECT count(*) INTO debug_count FROM user_sessions;
   RAISE NOTICE 'Total visible sessions: %', debug_count;
@@ -49,6 +53,7 @@ BEGIN
     'RLS violation - user can see other sessions. Replication role: ' || 
     current_setting('session_replication_role');
 
+  RAISE NOTICE 'Tests passed';
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'Error role state: %', current_setting('session_replication_role');
   RAISE;
