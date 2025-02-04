@@ -51,3 +51,12 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Enable RLS
+ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
+
+-- Add session access policy
+CREATE POLICY sessions_access ON public.sessions
+  FOR ALL
+  TO authenticated
+  USING (auth.get_session_access(id));
