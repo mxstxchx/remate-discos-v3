@@ -10,7 +10,7 @@ ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
 ALTER TABLE reservations FORCE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
 
--- Simple session identification
+-- Session identification
 CREATE OR REPLACE FUNCTION get_session_id() 
 RETURNS UUID AS $$
 DECLARE
@@ -34,49 +34,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Helper function to check admin
+-- Admin check
 CREATE OR REPLACE FUNCTION is_admin_session()
 RETURNS BOOLEAN AS $$
+DECLARE
+  sess_id UUID;
 BEGIN
+  sess_id := get_session_id();
   RETURN EXISTS (
     SELECT 1 FROM user_sessions
-    WHERE id = get_session_id()
+    WHERE id = sess_id
     AND is_admin = true
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Policy for devices
-DROP POLICY IF EXISTS device_access ON devices;
-CREATE POLICY device_access ON devices FOR ALL USING (
-  CASE WHEN get_session_id() IS NOT NULL THEN
-    id IN (
-      SELECT device_id FROM user_sessions
-      WHERE id = get_session_id()
-    ) OR is_admin_session()
-  ELSE false END
-);
-
 -- Policy for sessions
 DROP POLICY IF EXISTS session_access ON user_sessions;
 CREATE POLICY session_access ON user_sessions FOR ALL USING (
-  CASE WHEN get_session_id() IS NOT NULL THEN
-    id = get_session_id() OR is_admin_session()
-  ELSE false END
+  CASE 
+    WHEN get_session_id() IS NULL THEN false
+    WHEN is_admin_session() THEN true
+    ELSE id = get_session_id()
+  END
+);
+
+-- Policy for devices
+DROP POLICY IF EXISTS device_access ON devices;
+CREATE POLICY device_access ON devices FOR ALL USING (
+  CASE 
+    WHEN get_session_id() IS NULL THEN false
+    WHEN is_admin_session() THEN true
+    ELSE id IN (
+      SELECT device_id FROM user_sessions
+      WHERE id = get_session_id()
+    )
+  END
 );
 
 -- Policy for reservations
 DROP POLICY IF EXISTS reservation_access ON reservations;
 CREATE POLICY reservation_access ON reservations FOR ALL USING (
-  CASE WHEN get_session_id() IS NOT NULL THEN
-    session_id = get_session_id() OR is_admin_session()
-  ELSE false END
+  CASE 
+    WHEN get_session_id() IS NULL THEN false
+    WHEN is_admin_session() THEN true
+    ELSE session_id = get_session_id()
+  END
 );
 
 -- Policy for audit logs
 DROP POLICY IF EXISTS audit_access ON audit_logs;
 CREATE POLICY audit_access ON audit_logs FOR ALL USING (
-  CASE WHEN get_session_id() IS NOT NULL THEN
-    is_admin_session()
-  ELSE false END
+  is_admin_session()
 );
