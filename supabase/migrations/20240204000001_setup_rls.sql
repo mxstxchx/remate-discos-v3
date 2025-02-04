@@ -4,8 +4,14 @@ ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Deny all by default
+ALTER TABLE devices FORCE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
+ALTER TABLE reservations FORCE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
+
 -- Simple session identification
-CREATE FUNCTION get_session_id() 
+CREATE OR REPLACE FUNCTION get_session_id() 
 RETURNS UUID AS $$
 DECLARE
   device_fp TEXT;
@@ -29,6 +35,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Policy for devices
+DROP POLICY IF EXISTS device_access ON devices;
 CREATE POLICY device_access ON devices FOR ALL USING (
   EXISTS (
     SELECT 1 FROM user_sessions
@@ -38,6 +45,7 @@ CREATE POLICY device_access ON devices FOR ALL USING (
 );
 
 -- Policy for sessions
+DROP POLICY IF EXISTS session_access ON user_sessions;
 CREATE POLICY session_access ON user_sessions FOR ALL USING (
   id = get_session_id() OR
   EXISTS (
@@ -48,6 +56,7 @@ CREATE POLICY session_access ON user_sessions FOR ALL USING (
 );
 
 -- Policy for reservations
+DROP POLICY IF EXISTS reservation_access ON reservations;
 CREATE POLICY reservation_access ON reservations FOR ALL USING (
   session_id = get_session_id() OR
   EXISTS (
@@ -58,6 +67,7 @@ CREATE POLICY reservation_access ON reservations FOR ALL USING (
 );
 
 -- Policy for audit logs
+DROP POLICY IF EXISTS audit_access ON audit_logs;
 CREATE POLICY audit_access ON audit_logs FOR ALL USING (
   EXISTS (
     SELECT 1 FROM user_sessions
