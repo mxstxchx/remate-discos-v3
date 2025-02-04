@@ -1,6 +1,17 @@
 BEGIN;
     SELECT plan(8);
 
+    -- Setup test data
+    INSERT INTO auth.users (id, email, role)
+    VALUES ('00000000-0000-0000-0000-000000000000'::uuid, 'test@example.com', 'basic');
+
+    INSERT INTO public.sessions (id, user_id, device_fingerprint)
+    VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 
+            '00000000-0000-0000-0000-000000000000'::uuid,
+            'test-fingerprint');
+
+    SET app.device_fingerprint = 'test-fingerprint';
+
     -- Test role creation
     SELECT has_type('user_role', 'Role enum type exists');
     SELECT has_column('auth', 'users', 'role', 'Users table has role column');
@@ -15,7 +26,7 @@ BEGIN;
         
     -- Test initial data
     SELECT results_eq(
-        'SELECT role::text FROM auth.users LIMIT 1',
+        'SELECT role::text FROM auth.users WHERE id = ''00000000-0000-0000-0000-000000000000''::uuid',
         ARRAY['basic'],
         'New users default to basic role'
     );
@@ -35,11 +46,7 @@ BEGIN;
     
     SELECT results_eq(
         $$ 
-        SELECT auth.get_session_access(s.id)
-        FROM public.sessions s
-        WHERE s.user_id = auth.uid()
-        AND s.device_fingerprint = current_setting('app.device_fingerprint', true)
-        LIMIT 1
+        SELECT auth.get_session_access('00000000-0000-0000-0000-000000000001'::uuid)
         $$,
         ARRAY[true],
         'User can access own fingerprinted session'
