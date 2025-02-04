@@ -15,8 +15,8 @@ BEGIN;
         
     -- Test initial data
     SELECT results_eq(
-        'SELECT role FROM auth.users LIMIT 1',
-        ARRAY['basic'::user_role],
+        'SELECT role::text FROM auth.users LIMIT 1',
+        ARRAY['basic'],
         'New users default to basic role'
     );
     
