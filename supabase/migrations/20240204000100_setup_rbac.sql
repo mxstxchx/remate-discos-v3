@@ -19,13 +19,29 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Basic RLS policy function
 CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
 RETURNS boolean AS $$
+DECLARE
+    session_exists boolean;
+    user_is_admin boolean;
 BEGIN
-    -- Admin sees everything
-    IF (SELECT role FROM auth.users WHERE id = auth.uid()) = 'admin' THEN
+    -- Check if session exists
+    SELECT EXISTS (
+        SELECT 1 FROM public.sessions WHERE id = session_id
+    ) INTO session_exists;
+
+    IF NOT session_exists THEN
+        RETURN false;
+    END IF;
+
+    -- Check if admin
+    SELECT (role = 'admin') FROM auth.users 
+    WHERE id = auth.uid()
+    INTO user_is_admin;
+
+    IF user_is_admin THEN
         RETURN true;
     END IF;
-    
-    -- Users see only their fingerprinted sessions
+
+    -- Check user+fingerprint match
     RETURN EXISTS (
         SELECT 1
         FROM public.sessions s
