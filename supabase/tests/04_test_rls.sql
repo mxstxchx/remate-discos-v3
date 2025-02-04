@@ -38,6 +38,10 @@ BEGIN
   -- Regular user tests
   PERFORM set_config('request.device_fingerprint', 'regular_fp', TRUE);
   
+  RAISE NOTICE 'Regular user test - device_fp: %', current_setting('request.device_fingerprint', TRUE);
+  RAISE NOTICE 'Regular user test - session_id: %', get_session_id();
+  RAISE NOTICE 'Regular user test - visible sessions: %', (SELECT COUNT(*) FROM user_sessions);
+
   ASSERT (SELECT COUNT(*) FROM user_sessions) = 1,
     'Regular user should only see their session';
 
@@ -50,6 +54,10 @@ BEGIN
   -- Admin user tests
   PERFORM set_config('request.device_fingerprint', 'admin_fp', TRUE);
   
+  RAISE NOTICE 'Admin user test - device_fp: %', current_setting('request.device_fingerprint', TRUE);
+  RAISE NOTICE 'Admin user test - session_id: %', get_session_id();
+  RAISE NOTICE 'Admin user test - visible sessions: %', (SELECT COUNT(*) FROM user_sessions);
+
   ASSERT (SELECT COUNT(*) FROM user_sessions) = 2,
     'Admin should see all sessions';
 
