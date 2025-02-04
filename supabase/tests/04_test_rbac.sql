@@ -10,7 +10,10 @@ BEGIN;
             '00000000-0000-0000-0000-000000000000'::uuid,
             'test-fingerprint');
 
+    -- Set test context
     SET app.device_fingerprint = 'test-fingerprint';
+    SET request.jwt.claim.sub = '00000000-0000-0000-0000-000000000000';
+    SET request.jwt.claims = '{"sub": "00000000-0000-0000-0000-000000000000"}';
 
     -- Test role creation
     SELECT has_type('user_role', 'Role enum type exists');
