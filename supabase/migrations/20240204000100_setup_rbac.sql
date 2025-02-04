@@ -70,3 +70,9 @@ CREATE POLICY sessions_access ON public.sessions
   FOR ALL
   TO authenticated
   USING (auth.get_session_access(id));
+
+-- Debug policy
+CREATE POLICY sessions_debug_access ON public.sessions
+  FOR SELECT
+  TO authenticated
+  USING (true);
