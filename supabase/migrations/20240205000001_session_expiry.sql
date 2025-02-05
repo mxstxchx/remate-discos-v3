@@ -3,12 +3,15 @@ ALTER TABLE sessions
   ADD COLUMN expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
   ADD COLUMN last_active TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- Create or extend audit action type
-DO $$ BEGIN
-  CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
-EXCEPTION WHEN duplicate_object THEN
-  ALTER TYPE action_type ADD VALUE IF NOT EXISTS 'session_expired';
-END $$;
+-- Create audit logs schema
+CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  action action_type NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Enhance session access check
 CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
@@ -18,13 +21,9 @@ BEGIN
     SELECT 1 FROM sessions s
     WHERE s.id = session_id
     AND (
-      -- Existing fingerprint check
       device_id IN (SELECT id FROM devices WHERE fingerprint = current_setting('app.device_fingerprint', TRUE)::text)
-      OR 
-      -- Admin override
-      EXISTS (SELECT 1 FROM auth.users u WHERE u.id = auth.uid() AND u.role = 'admin')
+      OR EXISTS (SELECT 1 FROM auth.users u WHERE u.id = auth.uid() AND u.role = 'admin')
     )
-    -- Add expiry check
     AND s.expires_at > NOW()
   );
 END;
@@ -50,7 +49,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER session_activity_refresh
   AFTER INSERT ON audit_logs
   FOR EACH ROW
-  WHEN (NEW.action::text != 'session_expired')
+  WHEN (NEW.action != 'session_expired')
   EXECUTE FUNCTION refresh_session_expiry();
 
 -- Audit hook
@@ -59,7 +58,7 @@ RETURNS trigger AS $$
 BEGIN
   IF OLD.expires_at > NOW() AND NEW.expires_at <= NOW() THEN
     INSERT INTO audit_logs (session_id, action)
-    VALUES (NEW.id, 'session_expired'::action_type);
+    VALUES (NEW.id, 'session_expired');
   END IF;
   RETURN NEW;
 END;
