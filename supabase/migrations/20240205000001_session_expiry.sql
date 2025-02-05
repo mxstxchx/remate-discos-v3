@@ -3,8 +3,12 @@ ALTER TABLE sessions
   ADD COLUMN expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
   ADD COLUMN last_active TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- Add session expired action type
-ALTER TYPE action_type ADD VALUE IF NOT EXISTS 'session_expired';
+-- Create or extend audit action type
+DO $$ BEGIN
+  CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
+EXCEPTION WHEN duplicate_object THEN
+  ALTER TYPE action_type ADD VALUE IF NOT EXISTS 'session_expired';
+END $$;
 
 -- Enhance session access check
 CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
@@ -46,7 +50,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER session_activity_refresh
   AFTER INSERT ON audit_logs
   FOR EACH ROW
-  WHEN (NEW.action != 'session_expired')
+  WHEN (NEW.action::text != 'session_expired')
   EXECUTE FUNCTION refresh_session_expiry();
 
 -- Audit hook
@@ -55,7 +59,7 @@ RETURNS trigger AS $$
 BEGIN
   IF OLD.expires_at > NOW() AND NEW.expires_at <= NOW() THEN
     INSERT INTO audit_logs (session_id, action)
-    VALUES (NEW.id, 'session_expired');
+    VALUES (NEW.id, 'session_expired'::action_type);
   END IF;
   RETURN NEW;
 END;
