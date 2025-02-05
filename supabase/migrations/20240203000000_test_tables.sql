@@ -1,5 +1,8 @@
--- Base tables required across features
+-- Enums first
+CREATE TYPE trust_level_type AS ENUM ('new', 'known', 'primary');
+CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
 
+-- Base tables
 CREATE TABLE IF NOT EXISTS devices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   fingerprint TEXT NOT NULL UNIQUE,
@@ -17,8 +20,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   trust_level trust_level_type NOT NULL DEFAULT 'new',
   expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days'
 );
-
-CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
