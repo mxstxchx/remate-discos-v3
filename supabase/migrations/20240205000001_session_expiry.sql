@@ -13,22 +13,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enhance session access check
-CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
-RETURNS boolean AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM sessions s
-    WHERE s.id = session_id
-    AND (
-      device_id IN (SELECT id FROM devices WHERE fingerprint = current_setting('app.device_fingerprint', TRUE)::text)
-      OR EXISTS (SELECT 1 FROM auth.users u WHERE u.id = auth.uid() AND u.role = 'admin')
-    )
-    AND s.expires_at > NOW()
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Activity trigger
 CREATE OR REPLACE FUNCTION refresh_session_expiry()
 RETURNS trigger AS $$
@@ -46,6 +30,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS session_activity_refresh ON audit_logs;
 CREATE TRIGGER session_activity_refresh
   AFTER INSERT ON audit_logs
   FOR EACH ROW
@@ -64,7 +49,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS session_expiry_audit ON sessions;
 CREATE TRIGGER session_expiry_audit
   AFTER UPDATE ON sessions
   FOR EACH ROW
   EXECUTE FUNCTION log_session_expiry();
+
+-- Enhance session access
+CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM sessions s
+    WHERE s.id = session_id
+    AND (
+      device_id IN (SELECT id FROM devices WHERE fingerprint = current_setting('app.device_fingerprint', TRUE)::text)
+      OR EXISTS (SELECT 1 FROM auth.users u WHERE u.id = auth.uid() AND u.role = 'admin')
+    )
+    AND s.expires_at > NOW()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
