@@ -1,4 +1,7 @@
 -- Add expiry tracking columns
+DROP TRIGGER IF EXISTS session_activity_refresh ON audit_logs;
+DROP TRIGGER IF EXISTS session_expiry_audit ON sessions;
+
 ALTER TABLE sessions
   ADD COLUMN expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
   ADD COLUMN last_active TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -30,7 +33,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS session_activity_refresh ON audit_logs;
 CREATE TRIGGER session_activity_refresh
   AFTER INSERT ON audit_logs
   FOR EACH ROW
@@ -49,7 +51,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS session_expiry_audit ON sessions;
 CREATE TRIGGER session_expiry_audit
   AFTER UPDATE ON sessions
   FOR EACH ROW
