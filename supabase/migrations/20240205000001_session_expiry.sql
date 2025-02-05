@@ -37,3 +37,17 @@ CREATE TRIGGER session_expiry_audit
   AFTER UPDATE ON sessions
   FOR EACH ROW
   EXECUTE FUNCTION log_session_expiry();
+
+-- Fix session access
+CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM sessions s
+    JOIN devices d ON s.device_id = d.id
+    WHERE s.id = session_id
+    AND d.fingerprint = current_setting('app.device_fingerprint', TRUE)::text
+    AND s.expires_at > NOW()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
