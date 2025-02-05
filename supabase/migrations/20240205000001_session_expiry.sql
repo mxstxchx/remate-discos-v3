@@ -3,8 +3,8 @@ ALTER TABLE sessions
   ADD COLUMN expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
   ADD COLUMN last_active TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-ALTER TABLE audit_logs
-  ADD VALUE 'session_expired' TO COLUMN action;
+-- Add session expired action type
+ALTER TYPE action_type ADD VALUE IF NOT EXISTS 'session_expired';
 
 -- Enhance session access check
 CREATE OR REPLACE FUNCTION auth.get_session_access(session_id UUID)
