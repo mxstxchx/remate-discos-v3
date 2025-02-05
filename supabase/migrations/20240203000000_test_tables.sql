@@ -1,3 +1,6 @@
+-- Enable testing
+CREATE EXTENSION IF NOT EXISTS pgtap;
+
 -- Enums first
 CREATE TYPE trust_level_type AS ENUM ('new', 'known', 'primary');
 CREATE TYPE action_type AS ENUM ('login', 'logout', 'refresh', 'session_expired');
